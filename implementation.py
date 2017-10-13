@@ -27,9 +27,31 @@ def load_glove_embeddings():
             word_index_dict: a dictionary matching a word in string form to
             its index in the embeddings array. e.g. {"apple": 119"}
     """
-    #data = open("glove.6B.50d.txt",'r',encoding="utf-8")
+    data = open("glove.6B.50d.txt",'r',encoding="utf-8")
+    lines = data.readlines()
     #if you are running on the CSE machines, you can load the glove data from here
     #data = open("/home/cs9444/public_html/17s2/hw2/glove.6B.50d.txt",'r',encoding="utf-8")
+    i = 0
+    lineCount = len(lines)
+    print(lineCount)
+    embeddings = np.zeros(shape=(lineCount,50))
+    word_index_dict = {}
+
+    for line in lines:
+        lineSplit = line.split(' ', 1)
+        word = lineSplit[0]
+        line = lineSplit[1]
+
+        npArray = np.fromstring(line, dtype=float, sep=' ')
+
+        embeddings[i] = npArray
+
+        word_index_dict[word] = i
+        i = i + 1
+
+    #test print
+    print(embeddings[1])
+    print(word_index_dict[","])
     return embeddings, word_index_dict
 
 
@@ -44,7 +66,8 @@ def define_graph(glove_embeddings_arr):
         accuracy tensor: name="accuracy"
         loss tensor: name="loss"
 
-    RETURN: input placeholder, labels placeholder, optimizer, accuracy and loss
+    RETURN: input placeholder, labels placeholder, dropout_keep_prob, optimizer, accuracy and loss
     tensors"""
+    dropout_keep_prob = tf.placeholder_with_default(1.0, shape=())
 
-    return input_data, labels, optimizer, accuracy, loss
+    return input_data, labels, dropout_keep_prob, optimizer, accuracy, loss
