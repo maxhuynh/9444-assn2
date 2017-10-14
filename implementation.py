@@ -7,6 +7,7 @@ import tarfile
 
 batch_size = 50
 
+
 def load_data(glove_dict):
     """
     Take reviews from text files, vectorize them, and load them into a
@@ -15,8 +16,24 @@ def load_data(glove_dict):
     reviews should be the negative reviews.
     RETURN: numpy array of data with each row being a review in vectorized
     form"""
-    return data
 
+    if not os.path.exists(os.path.join(os.path.dirname(__file__), 'reviews/')):
+        with tarfile.open(filename, "r") as tarball:
+            dir = os.path.dirname(__file__)
+            tarball.extractall(os.path.join(dir, 'reviews/'))
+
+    data = []
+    dir = os.path.dirname(__file__)
+    file_list = glob.glob(os.path.join(dir, 'reviews/pos/*'))
+    file_list.extend(glob.glob(os.path.join(dir, 'reviews/neg/*')))
+
+    for f in file_list:
+        with open(f, "r") as openf:
+            s = openf.read()
+            no_punct = ''.join(c for c in s if c not in string.punctuation)
+            data.extend(no_punct.split())
+
+    return data
 
 def load_glove_embeddings():
     """
