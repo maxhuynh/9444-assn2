@@ -27,10 +27,13 @@ def load_data(glove_dict):
     file_list = glob.glob(os.path.join(dir, 'reviews/pos/*'))
     file_list.extend(glob.glob(os.path.join(dir, 'reviews/neg/*')))
 
+    print("Parsing %s files" % len(file_list))
+
     for f in file_list:
         with open(f, "r") as openf:
             s = openf.read()
-            no_punct = ''.join(c for c in s if c not in string.punctuation)
+            exclude = set(string.punctuation)
+            no_punct = ''.join(c for c in s if c not in exclude)
             data.extend(no_punct.split())
 
     return data
@@ -44,7 +47,8 @@ def load_glove_embeddings():
             word_index_dict: a dictionary matching a word in string form to
             its index in the embeddings array. e.g. {"apple": 119"}
     """
-    data = open("glove.6B.50d.txt",'r',encoding="utf-8")
+
+    data = open("glove.6B.50d.txt",'r', encoding="utf-8")
     lines = data.readlines()
     #if you are running on the CSE machines, you can load the glove data from here
     #data = open("/home/cs9444/public_html/17s2/hw2/glove.6B.50d.txt",'r',encoding="utf-8")
@@ -85,6 +89,23 @@ def define_graph(glove_embeddings_arr):
 
     RETURN: input placeholder, labels placeholder, dropout_keep_prob, optimizer, accuracy and loss
     tensors"""
+    labels = tf.placeholder(tf.float32, [batchSize, numClasses])
+    input_data = tf.placeholder(tf.int32, [batchSize, maxSeqLength])
+    data = tf.Variable(tf.zeros([batchSize, maxSeqLength, numDimensions]),dtype=tf.float32)
+    data = tf.nn.embedding_lookup(wordVectors,input_data)
+    lstmCell = tf.contrib.rnn.BasicLSTMCell(lstmUnits)
+    lstmCell = tf.contrib.rnn.DropoutWrapper(cell=lstmCell, output_keep_prob=0.75)
+    value, _ = tf.nn.dynamic_rnn(lstmCell, data, dtype=tf.float32)
+    weight = tf.Variable(tf.truncated_normal([lstmUnits, numClasses]))
+    bias = tf.Variable(tf.constant(0.1, shape=[numClasses]))
+    value = tf.transpose(value, [1, 0, 2])
+    last = tf.gather(value, int(value.get_shape()[0]) - 1)
+    prediction = (tf.matmul(last, weight) + bias)
+    correctPred = tf.equal(tf.argmax(prediction,1), tf.argmax(labels,1))
+    accuracy = tf.reduce_mean(tf.cast(correctPred, tf.float32))
+    loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=prediction, labels=labels))
+    optimizer = tf.train.AdamOptimizer().minimize(loss)
+
     dropout_keep_prob = tf.placeholder_with_default(1.0, shape=())
 
     return input_data, labels, dropout_keep_prob, optimizer, accuracy, loss
