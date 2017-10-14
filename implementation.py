@@ -6,7 +6,28 @@ import tarfile
 
 
 batch_size = 50
+lstmUnits = 64
+numClasses = 2
+maxSeqLength = 10 #Maximum length of sentence
+numDimensions = 300 #Dimensions for each word vector
 
+
+def extract_data(filename):
+    """Extract data from tarball and store as list of strings"""
+    if not os.path.exists(os.path.join(os.path.dirname(__file__), 'reviews/')):
+        with tarfile.open(filename, "r") as tarball:
+            dir = os.path.dirname(__file__)
+            tarball.extractall(os.path.join(dir, 'reviews/'))
+    return
+
+def read_data():
+    print("READING DATA")
+    data = []
+    dir = os.path.dirname(__file__)
+    file_list = glob.glob(os.path.join(dir, 'reviews/pos/*'))
+    file_list.extend(glob.glob(os.path.join(dir, 'reviews/neg/*')))
+    print("Parsing %s files" % len(file_list))
+    return file_list
 
 def load_data(glove_dict):
     """
@@ -16,26 +37,8 @@ def load_data(glove_dict):
     reviews should be the negative reviews.
     RETURN: numpy array of data with each row being a review in vectorized
     form"""
-
-    if not os.path.exists(os.path.join(os.path.dirname(__file__), 'reviews/')):
-        with tarfile.open(filename, "r") as tarball:
-            dir = os.path.dirname(__file__)
-            tarball.extractall(os.path.join(dir, 'reviews/'))
-
-    data = []
-    dir = os.path.dirname(__file__)
-    file_list = glob.glob(os.path.join(dir, 'reviews/pos/*'))
-    file_list.extend(glob.glob(os.path.join(dir, 'reviews/neg/*')))
-
-    print("Parsing %s files" % len(file_list))
-
-    for f in file_list:
-        with open(f, "r") as openf:
-            s = openf.read()
-            exclude = set(string.punctuation)
-            no_punct = ''.join(c for c in s if c not in exclude)
-            data.extend(no_punct.split())
-
+    extract_data('reviews.tar.gz')
+    data = read_data()
     return data
 
 def load_glove_embeddings():
@@ -89,9 +92,10 @@ def define_graph(glove_embeddings_arr):
 
     RETURN: input placeholder, labels placeholder, dropout_keep_prob, optimizer, accuracy and loss
     tensors"""
-    labels = tf.placeholder(tf.float32, [batchSize, numClasses])
-    input_data = tf.placeholder(tf.int32, [batchSize, maxSeqLength])
-    data = tf.Variable(tf.zeros([batchSize, maxSeqLength, numDimensions]),dtype=tf.float32)
+
+    labels = tf.placeholder(tf.float32, [batch_size, numClasses])
+    input_data = tf.placeholder(tf.int32, [batch_size, maxSeqLength])
+    data = tf.Variable(tf.zeros([batch_size, maxSeqLength, numDimensions]),dtype=tf.float32)
     data = tf.nn.embedding_lookup(wordVectors,input_data)
     lstmCell = tf.contrib.rnn.BasicLSTMCell(lstmUnits)
     lstmCell = tf.contrib.rnn.DropoutWrapper(cell=lstmCell, output_keep_prob=0.75)
@@ -105,7 +109,6 @@ def define_graph(glove_embeddings_arr):
     accuracy = tf.reduce_mean(tf.cast(correctPred, tf.float32))
     loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=prediction, labels=labels))
     optimizer = tf.train.AdamOptimizer().minimize(loss)
-
     dropout_keep_prob = tf.placeholder_with_default(1.0, shape=())
 
     return input_data, labels, dropout_keep_prob, optimizer, accuracy, loss
