@@ -92,23 +92,32 @@ def define_graph(glove_embeddings_arr):
 
     RETURN: input placeholder, labels placeholder, dropout_keep_prob, optimizer, accuracy and loss
     tensors"""
+    lstm_units = 64
 
-    labels = tf.placeholder(tf.float32, [batch_size, numClasses])
-    input_data = tf.placeholder(tf.int32, [batch_size, maxSeqLength])
-    data = tf.Variable(tf.zeros([batch_size, maxSeqLength, numDimensions]),dtype=tf.float32)
-    data = tf.nn.embedding_lookup(wordVectors,input_data)
-    lstmCell = tf.contrib.rnn.BasicLSTMCell(lstmUnits)
-    lstmCell = tf.contrib.rnn.DropoutWrapper(cell=lstmCell, output_keep_prob=0.75)
-    value, _ = tf.nn.dynamic_rnn(lstmCell, data, dtype=tf.float32)
-    weight = tf.Variable(tf.truncated_normal([lstmUnits, numClasses]))
-    bias = tf.Variable(tf.constant(0.1, shape=[numClasses]))
+    labels = tf.placeholder(name="labels", dtype=tf.float32, shape=[batch_size,2])
+    input_data = tf.placeholder(name="input_data", dtype=tf.int32, shape=[batch_size,40])
+    dropout_keep_prob = tf.placeholder_with_default(0.75, name="dropout_keep_prob", shape=())
+
+    data = tf.nn.embedding_lookup(glove_embeddings_arr, input_data)
+
+    lstm = tf.contrib.rnn.BasicLSTMCell(lstm_units)
+    lstm = tf.contrib.rnn.DropoutWrapper(cell=lstm, output_keep_prob=dropout_keep_prob)
+    value, _ = tf.nn.dynamic_rnn(lstm, data, dtype=tf.float32)
+
+    weight = tf.Variable(tf.truncated_normal([lstm_units, 2]))
+    bias = tf.Variable(tf.constant(0.1, shape=[2]))
     value = tf.transpose(value, [1, 0, 2])
     last = tf.gather(value, int(value.get_shape()[0]) - 1)
     prediction = (tf.matmul(last, weight) + bias)
+
     correctPred = tf.equal(tf.argmax(prediction,1), tf.argmax(labels,1))
-    accuracy = tf.reduce_mean(tf.cast(correctPred, tf.float32))
+    accuracy = tf.reduce_mean(tf.cast(correctPred, dtype=tf.float32))
+
     loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=prediction, labels=labels))
+    print(loss)
     optimizer = tf.train.AdamOptimizer().minimize(loss)
-    dropout_keep_prob = tf.placeholder_with_default(1.0, shape=())
+
+    accuracy = tf.identity(accuracy, name="accuracy")
+    loss = tf.identity(loss, name="loss")
 
     return input_data, labels, dropout_keep_prob, optimizer, accuracy, loss
